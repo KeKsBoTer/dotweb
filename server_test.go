@@ -9,9 +9,14 @@ import (
 	"reflect"
 	"strconv"
 	"math/rand"
+	"flag"
+	"log"
+	"net/http"
+	"fmt"
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 func randStringBytes(n int) string {
 	b := make([]byte, n)
 	for i := range b {
@@ -51,5 +56,38 @@ func TestLoadConfig(t *testing.T) {
 		if err != nil {
 			t.Error("failed to delete config file:", err)
 		}
+	}
+}
+
+func TestStartWebServer(t *testing.T) {
+	go func() {
+		config, err := ConfigFromFlags([]string{
+			"-http=8080", "-redirectHttp=false",
+		})
+		if err != nil {
+			if err == flag.ErrHelp {
+				return
+			} else {
+				log.Fatal(err)
+			}
+		}
+		config.Handler = func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, "It works")
+		}
+		err = StartWebServer(*config)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+	resp, err := http.Get("http://localhost:8080")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("web server returned status code %d, expected %d", resp.StatusCode, http.StatusOK)
+	}else{
+		var data []byte
+		resp.Body.Read(data)
+		t.Log(string(data))
 	}
 }
