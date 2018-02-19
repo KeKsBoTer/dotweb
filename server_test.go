@@ -1,18 +1,18 @@
 package dotweb
 
 import (
-	"testing"
-	"io/ioutil"
-	"time"
-	"os"
 	"encoding/json"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"net/http"
+	"os"
 	"reflect"
 	"strconv"
-	"math/rand"
-	"flag"
-	"log"
-	"net/http"
-	"fmt"
+	"testing"
+	"time"
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -85,7 +85,7 @@ func TestStartWebServer(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("web server returned status code %d, expected %d", resp.StatusCode, http.StatusOK)
-	}else{
+	} else {
 		var data []byte
 		resp.Body.Read(data)
 		t.Log(string(data))
