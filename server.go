@@ -99,13 +99,12 @@ func ConfigFromFlags(args []string) (*Config, error) {
 
 // Load config from json file
 // Path is the location of the file
-// Not provided arguments are taken from dotweb.DefaultConfig()
 func loadConfig(path string) (*Config, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	config := DefaultConfig()
+	var config Config
 	err = json.Unmarshal(data, &config)
 	if err != nil {
 		return nil, err
