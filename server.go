@@ -1,17 +1,12 @@
 package dotweb
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
-	"strings"
-
-	"golang.org/x/crypto/acme/autocert"
 )
 
 // Config provides config values for the webserver
@@ -22,18 +17,11 @@ type Config struct {
 	// e.g. dotcookie.me, www.dotcookie.me
 	Host string `json:"host"`
 
-	// HTTPPort defines the port to listen on for HTTP requests
-	HTTPPort int `json:"http"`
-
-	// HTTPSPort defines the port to listen on for HTTP requests
-	HTTPSPort int `json:"https"`
+	// Port defines the port to listen on for HTTP requests
+	Port int `json:"port"`
 
 	// The function that handles all incoming HTTP and HTTPS requests
 	Handler http.HandlerFunc `json:"-"`
-
-	// The directiory where the SSL certificates are stored
-	// If the string is empty, HTTPS will not be available
-	CertsDir string `json:"certsDir"`
 
 	// If RedirectHTTP is true all HTTP requests will be redirected to HTTPS
 	// ACME "http-01" challenge will not be redirects to HTTPS!
@@ -45,10 +33,8 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Host:         "",
-		HTTPPort:     80,
-		HTTPSPort:    443,
+		Port:         80,
 		RedirectHTTP: true,
-		CertsDir:     "certs",
 	}
 }
 
@@ -60,25 +46,19 @@ func DefaultConfig() Config {
 // 	dotweb.ConfigFromFlags(os.Args[1:])
 //
 // Usage of dotweb:
-// -certsDir string
-//   directory to save the certificates to (default "certs")
 // -config string
 //   path to json config file, overrides flags
 // -host string
 //   hostname to listen on. Leave blank to listen for localhost
-// -http int
+// -port int
 //   port to listen on for HTTP requests (default 80)
-// -https int
-//   port to listen on for HTTPS requests (default 443)
 // -RedirectHTTP
 //   redirect all HTTP requests to HTTPS (default true)
 func ConfigFromFlags(args []string) (*Config, error) {
 	defaultConfig := DefaultConfig()
 	flags := flag.NewFlagSet("dotweb", flag.ContinueOnError)
 	host := flags.String("host", defaultConfig.Host, "hostname to listen on. Leave blank to listen for localhost")
-	HTTPPort := flags.Int("http", defaultConfig.HTTPPort, "port to listen on for HTTP requests")
-	HTTPSPort := flags.Int("https", defaultConfig.HTTPSPort, "port to listen on for HTTPS requests")
-	certsDir := flags.String("certsDir", defaultConfig.CertsDir, "directory to save the certificates to")
+	port := flags.Int("http", defaultConfig.Port, "port to listen on for HTTP requests")
 	redirect := flags.Bool("RedirectHTTP", defaultConfig.RedirectHTTP, "redirect all HTTP requests to HTTPS")
 	configFile := flags.String("config", "", "path to json config file, overrides flags")
 	err := flags.Parse(args)
@@ -90,10 +70,8 @@ func ConfigFromFlags(args []string) (*Config, error) {
 	}
 	return &Config{
 		Host:         *host,
-		HTTPPort:     *HTTPPort,
-		HTTPSPort:    *HTTPSPort,
+		Port:         *port,
 		RedirectHTTP: *redirect,
-		CertsDir:     *certsDir,
 	}, nil
 }
 
@@ -129,53 +107,10 @@ func StartWebServerFromConfig(configFile string, handler http.HandlerFunc) error
 //
 // All incomminng requests on HTTP and HTTPS port will be directed to config.Handler
 func StartWebServer(config Config) error {
-	HTTPPort := ":" + strconv.Itoa(config.HTTPPort)
-	HTTPSPort := ":" + strconv.Itoa(config.HTTPSPort)
-	httpsAvailable := true
-	if len(config.CertsDir) == 0 {
-		httpsAvailable = false
-		log.Println("warning: no certs dir was provided, https was disabled")
-	} else {
-		_, err := os.Open(config.CertsDir)
-		if err != nil {
-			err = os.Mkdir(config.CertsDir, os.ModePerm)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	certManager := autocert.Manager{
-		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist(config.Host), //your domain here
-		Cache:      autocert.DirCache(config.CertsDir),  //folder for storing certificates
-	}
-	httpsServer := http.Server{
-		Addr: config.Host + HTTPSPort,
-		TLSConfig: &tls.Config{
-			GetCertificate: certManager.GetCertificate,
-		},
-		Handler: config.Handler,
-	}
+	port := ":" + strconv.Itoa(config.Port)
 	httpServer := http.Server{
-		Addr: config.Host + ":" + strconv.Itoa(config.HTTPPort),
-		Handler: certManager.HTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if config.RedirectHTTP && httpsAvailable {
-				host := r.Host
-				if strings.HasSuffix(host, HTTPPort) {
-					host = strings.TrimSuffix(host, HTTPPort) + HTTPSPort
-				}
-				http.Redirect(w, r, "https://"+host+r.URL.String(), http.StatusMovedPermanently)
-			} else {
-				if config.Handler != nil {
-					config.Handler(w, r)
-				}
-			}
-		})),
+		Addr: config.Host + ":" + strconv.Itoa(config.Port),
 	}
-	if httpsAvailable {
-		log.Println("starting listening on", config.Host+HTTPSPort)
-		go httpsServer.ListenAndServeTLS("", "")
-	}
-	log.Println("starting listening on", config.Host+HTTPPort)
+	log.Println("starting listening on", config.Host+port)
 	return httpServer.ListenAndServe()
 }
