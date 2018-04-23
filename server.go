@@ -22,19 +22,13 @@ type Config struct {
 
 	// The function that handles all incoming HTTP and HTTPS requests
 	Handler http.HandlerFunc `json:"-"`
-
-	// If RedirectHTTP is true all HTTP requests will be redirected to HTTPS
-	// ACME "http-01" challenge will not be redirects to HTTPS!
-	// See https://godoc.org/golang.org/x/crypto/acme/autocert#Manager.HTTPHandler
-	RedirectHTTP bool `json:"RedirectHTTP"`
 }
 
 // DefaultConfig provides the default configurations
 func DefaultConfig() Config {
 	return Config{
-		Host:         "",
-		Port:         80,
-		RedirectHTTP: true,
+		Host: "",
+		Port: 80,
 	}
 }
 
@@ -58,8 +52,7 @@ func ConfigFromFlags(args []string) (*Config, error) {
 	defaultConfig := DefaultConfig()
 	flags := flag.NewFlagSet("dotweb", flag.ContinueOnError)
 	host := flags.String("host", defaultConfig.Host, "hostname to listen on. Leave blank to listen for localhost")
-	port := flags.Int("http", defaultConfig.Port, "port to listen on for HTTP requests")
-	redirect := flags.Bool("RedirectHTTP", defaultConfig.RedirectHTTP, "redirect all HTTP requests to HTTPS")
+	port := flags.Int("port", defaultConfig.Port, "port to listen on for HTTP requests")
 	configFile := flags.String("config", "", "path to json config file, overrides flags")
 	err := flags.Parse(args)
 	if err != nil {
@@ -69,9 +62,8 @@ func ConfigFromFlags(args []string) (*Config, error) {
 		return loadConfig(*configFile)
 	}
 	return &Config{
-		Host:         *host,
-		Port:         *port,
-		RedirectHTTP: *redirect,
+		Host: *host,
+		Port: *port,
 	}, nil
 }
 
@@ -109,7 +101,8 @@ func StartWebServerFromConfig(configFile string, handler http.HandlerFunc) error
 func StartWebServer(config Config) error {
 	port := ":" + strconv.Itoa(config.Port)
 	httpServer := http.Server{
-		Addr: config.Host + ":" + strconv.Itoa(config.Port),
+		Addr:    config.Host + ":" + strconv.Itoa(config.Port),
+		Handler: config.Handler,
 	}
 	log.Println("starting listening on", config.Host+port)
 	return httpServer.ListenAndServe()
