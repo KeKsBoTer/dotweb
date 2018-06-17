@@ -20,6 +20,9 @@ type Config struct {
 	// Port defines the port to listen on for HTTP requests
 	Port int `json:"port"`
 
+	// DB is the connection string for database
+	DB string `json:"db"`
+
 	// The function that handles all incoming HTTP and HTTPS requests
 	Handler http.HandlerFunc `json:"-"`
 }
@@ -53,6 +56,7 @@ func ConfigFromFlags(args []string) (*Config, error) {
 	flags := flag.NewFlagSet("dotweb", flag.ContinueOnError)
 	host := flags.String("host", defaultConfig.Host, "hostname to listen on. Leave blank to listen for localhost")
 	port := flags.Int("port", defaultConfig.Port, "port to listen on for HTTP requests")
+	db := flags.String("db", defaultConfig.DB, "database connection string")
 	configFile := flags.String("config", "", "path to json config file, overrides flags")
 	err := flags.Parse(args)
 	if err != nil {
@@ -64,6 +68,7 @@ func ConfigFromFlags(args []string) (*Config, error) {
 	return &Config{
 		Host: *host,
 		Port: *port,
+		DB:   *db,
 	}, nil
 }
 
